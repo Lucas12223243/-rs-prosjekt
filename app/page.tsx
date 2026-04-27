@@ -23,6 +23,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
 
 const STORAGE_KEY = "pokegrade_saved_cards_v5";
 
@@ -252,6 +254,7 @@ export default function PokemonCardGraderSite() {
   const [selectedPreview, setSelectedPreview] = useState("");
   const [selectedFileName, setSelectedFileName] = useState("No file chosen");
   const [isFindingLikelyCard, setIsFindingLikelyCard] = useState(false);
+  const [isPiScanning, setIsPiScanning] = useState(false);
   const [visionGuess, setVisionGuess] = useState<VisionGuess | null>(null);
   const [condition, setCondition] = useState<ConditionAssessment | null>(null);
   const [candidateCards, setCandidateCards] = useState<CardMatch[]>([]);
@@ -265,6 +268,8 @@ export default function PokemonCardGraderSite() {
   const [cardNameInput, setCardNameInput] = useState("");
   const [cardNumberInput, setCardNumberInput] = useState("");
   const [matchedCard, setMatchedCard] = useState<CardMatch | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -298,6 +303,60 @@ export default function PokemonCardGraderSite() {
     };
   }, [selectedPreview]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const loadSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      if (error) {
+        console.error(error);
+      }
+
+      setUser(data.session?.user ?? null);
+      setAuthLoading(false);
+    };
+
+    loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
+    if (error) {
+      console.error(error);
+      setError(error.message);
+    }
+  };
+
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error(error);
+      setError(error.message);
+    }
+  };
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -325,9 +384,11 @@ export default function PokemonCardGraderSite() {
     finalCondition: ConditionAssessment,
     foundCard: CardMatch | null
   ) => {
-    if (!selectedFile) return;
+    if (!selectedFile && !selectedPreview) return;
 
-    const persistentImageUrl = await fileToCompressedDataUrl(selectedFile);
+    const persistentImageUrl = selectedFile
+      ? await fileToCompressedDataUrl(selectedFile)
+      : selectedPreview;
 
     const entry: SavedCard = {
       id: crypto.randomUUID(),
@@ -358,6 +419,80 @@ export default function PokemonCardGraderSite() {
     };
 
     setSavedCards((current) => [entry, ...current].slice(0, 30));
+  };
+
+  const handleScanWithCamera = async () => {
+    try {
+      setIsPiScanning(true);
+      setIsFindingLikelyCard(true);
+      setError("");
+      setLookupError("");
+      setMatchedCard(null);
+      setVisionGuess(null);
+      setCondition(null);
+      setCandidateCards([]);
+      setShowModal(false);
+      setCardNameInput("");
+      setCardNumberInput("");
+
+     fetch("http://10.13.37.204:5000/scan", {
+        method: "POST",
+      });
+
+      const response = await fetch("http://10.13.37.204:5000/scan", {
+  method: "POST",
+});
+
+const payload = await response.json();
+
+if (!response.ok) {
+  throw new Error(payload?.error || "Camera scan failed.");
+}
+
+      const imageDataUrl = payload.imageDataUrl;
+      const result = payload.result;
+
+      if (selectedPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(selectedPreview);
+      }
+
+      setSelectedFile(null);
+      setSelectedPreview(imageDataUrl);
+      setSelectedFileName("Raspberry Pi camera scan");
+
+      const guess = result?.guess as VisionGuess | null;
+      const candidates = Array.isArray(result?.candidates)
+        ? (result.candidates as CardMatch[])
+        : [];
+      const newCondition = result?.condition as ConditionAssessment | null;
+
+      setVisionGuess(guess);
+      setCondition(newCondition);
+      setCandidateCards(candidates);
+
+      if (guess?.card_name) setCardNameInput(guess.card_name);
+      if (guess?.card_number) setCardNumberInput(guess.card_number);
+
+      if (candidates[0]) {
+        setMatchedCard(candidates[0]);
+      }
+
+      if (!guess?.card_name && candidates.length === 0) {
+        setLookupError(
+          "Could not identify the card confidently from the camera photo."
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      setLookupError(
+        err instanceof Error
+          ? err.message
+          : "Could not scan from Raspberry Pi."
+      );
+    } finally {
+      setIsPiScanning(false);
+      setIsFindingLikelyCard(false);
+    }
   };
 
   const handleFindLikelyCard = async () => {
@@ -426,8 +561,13 @@ export default function PokemonCardGraderSite() {
   };
 
   const handleEstimateAndSave = async () => {
-    if (!selectedFile) {
-      setError("Upload a card photo first.");
+    if (!selectedFile && !selectedPreview) {
+      setError("Upload or scan a card photo first.");
+      return;
+    }
+
+    if (!user) {
+      setError("Sign in with Google before saving.");
       return;
     }
 
@@ -471,28 +611,49 @@ export default function PokemonCardGraderSite() {
             </h1>
           </div>
 
-          <div className="flex rounded-2xl border border-white/10 bg-white/5 p-1">
-            <button
-              onClick={() => setActiveTab("scanner")}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                activeTab === "scanner"
-                  ? "bg-yellow-400 text-slate-950"
-                  : "text-white hover:bg-white/10"
-              }`}
-            >
-              Scanner
-            </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex rounded-2xl border border-white/10 bg-white/5 p-1">
+              <button
+                onClick={() => setActiveTab("scanner")}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                  activeTab === "scanner"
+                    ? "bg-yellow-400 text-slate-950"
+                    : "text-white hover:bg-white/10"
+                }`}
+              >
+                Scanner
+              </button>
 
-            <button
-              onClick={() => setActiveTab("collection")}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                activeTab === "collection"
-                  ? "bg-yellow-400 text-slate-950"
-                  : "text-white hover:bg-white/10"
-              }`}
-            >
-              My Collection
-            </button>
+              <button
+                onClick={() => setActiveTab("collection")}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                  activeTab === "collection"
+                    ? "bg-yellow-400 text-slate-950"
+                    : "text-white hover:bg-white/10"
+                }`}
+              >
+                My Collection
+              </button>
+            </div>
+
+            {authLoading ? (
+              <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                Loading...
+              </div>
+            ) : user ? (
+              <>
+                <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
+                  {user.email}
+                </div>
+                <ActionButton variant="outline" onClick={handleSignOut}>
+                  Sign out
+                </ActionButton>
+              </>
+            ) : (
+              <ActionButton variant="primary" onClick={handleGoogleSignIn}>
+                Sign in with Google
+              </ActionButton>
+            )}
           </div>
         </div>
 
@@ -517,8 +678,9 @@ export default function PokemonCardGraderSite() {
                       PokéGrade Lab
                     </h2>
                     <p className="max-w-xl text-base font-medium text-slate-900 sm:text-lg">
-                      Upload a card photo, let AI identify the card, estimate the visible
-                      condition, then save it to your collection.
+                      Upload a card photo, scan from your Raspberry Pi camera, let AI
+                      identify the card, estimate the visible condition, then save it to
+                      your collection.
                     </p>
                   </div>
                 </div>
@@ -532,7 +694,7 @@ export default function PokemonCardGraderSite() {
                         </div>
                         <div>
                           <h2 className="text-lg font-bold text-white">
-                            Upload and identify a card
+                            Upload, scan, and identify a card
                           </h2>
                           <p className="text-sm text-slate-300">
                             Best results: one full card, straight angle, low glare.
@@ -591,12 +753,21 @@ export default function PokemonCardGraderSite() {
 
                       <div className="mt-4 flex flex-wrap gap-3">
                         <ActionButton
+                          variant="primary"
+                          onClick={handleScanWithCamera}
+                          disabled={isPiScanning || isFindingLikelyCard}
+                        >
+                          <Camera className="mr-2 h-4 w-4" />
+                          {isPiScanning ? "Scanning..." : "Scan with Camera"}
+                        </ActionButton>
+
+                        <ActionButton
                           variant="outline"
                           onClick={handleFindLikelyCard}
                           disabled={isFindingLikelyCard || !selectedFile}
                         >
                           <Wand2 className="mr-2 h-4 w-4" />
-                          {isFindingLikelyCard
+                          {isFindingLikelyCard && !isPiScanning
                             ? "Finding card + grading..."
                             : "Find Card + Grade"}
                         </ActionButton>
@@ -604,7 +775,7 @@ export default function PokemonCardGraderSite() {
                         <ActionButton
                           variant="primary"
                           onClick={handleEstimateAndSave}
-                          disabled={!condition || !selectedFile}
+                          disabled={!condition || !selectedPreview || !user}
                         >
                           <ScanSearch className="mr-2 h-4 w-4" />
                           Save Result
@@ -614,10 +785,16 @@ export default function PokemonCardGraderSite() {
                           variant="outline"
                           onClick={() => fileInputRef.current?.click()}
                         >
-                          <Camera className="mr-2 h-4 w-4" />
+                          <Upload className="mr-2 h-4 w-4" />
                           Choose Another Photo
                         </ActionButton>
                       </div>
+
+                      {!user ? (
+                        <p className="mt-2 text-sm text-sky-200">
+                          Sign in with Google to save scans to your account.
+                        </p>
+                      ) : null}
 
                       {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
                       {lookupError ? (
@@ -745,7 +922,7 @@ export default function PokemonCardGraderSite() {
                             <ImageIcon className="h-10 w-10" />
                           </div>
                           <p className="font-medium">
-                            Your uploaded card preview will appear here.
+                            Your uploaded or camera-scanned card preview will appear here.
                           </p>
                         </div>
                       )}
@@ -765,11 +942,13 @@ export default function PokemonCardGraderSite() {
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm text-slate-200">
                   <p>
-                    This version identifies cards from the full image, shows likely matches,
-                    uses AI to estimate visible condition, and saves the result locally.
+                    This version identifies cards from an uploaded image or a Raspberry Pi
+                    camera scan, shows likely matches, uses AI to estimate visible
+                    condition, and saves the result locally.
                   </p>
                   <div className="rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4 text-yellow-100">
-                    Best flow: upload card → Find Card + Grade → review result → Save Result.
+                    Best flow: upload card or scan with camera → Find Card + Grade if uploaded
+                    → review result → Save Result.
                   </div>
                 </CardContent>
               </Card>
@@ -832,7 +1011,7 @@ export default function PokemonCardGraderSite() {
                     <CardTitle className="text-xl text-white">Best match</CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-slate-300">
-                    Upload a card and click Find Card + Grade.
+                    Upload a card and click Find Card + Grade, or use Scan with Camera.
                   </CardContent>
                 </Card>
               )}
@@ -870,7 +1049,7 @@ export default function PokemonCardGraderSite() {
                   <div>
                     <h3 className="text-xl font-bold text-white">No saved scans yet</h3>
                     <p className="mt-2 max-w-lg">
-                      Upload a card, find the likely match, grade it, and save it.
+                      Upload or scan a card, find the likely match, grade it, and save it.
                     </p>
                   </div>
                 </CardContent>
