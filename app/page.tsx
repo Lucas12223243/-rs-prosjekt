@@ -272,17 +272,6 @@ export default function PokemonCardGraderSite() {
   const [authLoading, setAuthLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-
-    try {
-      const parsed = JSON.parse(raw) as SavedCard[];
-      setSavedCards(parsed);
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-  }, []);
 
   useEffect(() => {
     try {
@@ -303,36 +292,89 @@ export default function PokemonCardGraderSite() {
     };
   }, [selectedPreview]);
 
-  useEffect(() => {
-    let mounted = true;
+ useEffect(() => {
+  let mounted = true;
 
-    const loadSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
+  const loadSession = async () => {
+    const { data, error } = await supabase.auth.getSession();
 
-      if (!mounted) return;
+    if (!mounted) return;
 
-      if (error) {
-        console.error(error);
-      }
+    if (error) {
+      console.error(error);
+    }
 
-      setUser(data.session?.user ?? null);
-      setAuthLoading(false);
-    };
+    setUser(data.session?.user ?? null);
+    setAuthLoading(false);
+  };
 
-    loadSession();
+  loadSession();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
-    });
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    setUser(session?.user ?? null);
+    setAuthLoading(false);
+  });
 
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+  return () => {
+    mounted = false;
+    subscription.unsubscribe();
+  };
+}, []);
+
+useEffect(() => {
+  const loadSavedCards = async () => {
+    if (!user) {
+      setSavedCards([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("saved_cards")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      setError("Could not load saved cards.");
+      return;
+    }
+
+    const mappedCards: SavedCard[] = (data ?? []).map((row) => ({
+      id: row.id,
+      createdAt: row.created_at,
+      uploadedImageUrl: row.uploaded_image_url,
+      grade: Number(row.grade ?? 0),
+      band: row.band ?? "Unknown",
+      metrics: {
+        centering: row.centering,
+        corners: row.corners,
+        edges: row.edges,
+        surface: row.surface,
+      },
+      cardName: row.card_name ?? "Unknown card",
+      enteredName: row.entered_name ?? "",
+      enteredNumber: row.entered_number ?? "",
+      matchedCardId: row.matched_card_id ?? undefined,
+      setName: row.set_name ?? undefined,
+      setSeries: row.set_series ?? undefined,
+      setPrintedTotal: row.set_printed_total ?? undefined,
+      setSymbolUrl: row.set_symbol_url ?? undefined,
+      rarity: row.rarity ?? undefined,
+      marketPrice: row.market_price,
+      lowPrice: row.low_price,
+      highPrice: row.high_price,
+      tcgplayerUrl: row.tcgplayer_url ?? undefined,
+      source: "vision_plus_ai_condition",
+    }));
+
+    setSavedCards(mappedCards);
+  };
+
+  loadSavedCards();
+}, [user]);
 
   const handleGoogleSignIn = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -380,46 +422,83 @@ export default function PokemonCardGraderSite() {
     setSelectedPreview(URL.createObjectURL(file));
   };
 
-  const saveCardToCollection = async (
-    finalCondition: ConditionAssessment,
-    foundCard: CardMatch | null
-  ) => {
-    if (!selectedFile && !selectedPreview) return;
+const saveCardToCollection = async (
+  finalCondition: ConditionAssessment,
+  foundCard: CardMatch | null
+) => {
+  if (!user) {
+    setError("Sign in with Google before saving.");
+    return;
+  }
 
-    const persistentImageUrl = selectedFile
-      ? await fileToCompressedDataUrl(selectedFile)
-      : selectedPreview;
+  if (!selectedFile && !selectedPreview) return;
 
-    const entry: SavedCard = {
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      uploadedImageUrl: persistentImageUrl,
-      grade: finalCondition.grade,
-      band: finalCondition.band,
-      metrics: {
-        centering: finalCondition.centering,
-        corners: finalCondition.corners,
-        edges: finalCondition.edges,
-        surface: finalCondition.surface,
-      },
-      cardName: foundCard?.name ?? (cardNameInput.trim() || "Unknown card"),
-      enteredName: cardNameInput.trim(),
-      enteredNumber: cardNumberInput.trim(),
-      matchedCardId: foundCard?.id,
-      setName: foundCard?.setName,
-      setSeries: foundCard?.setSeries,
-      setPrintedTotal: foundCard?.setPrintedTotal,
-      setSymbolUrl: foundCard?.setSymbolUrl,
-      rarity: foundCard?.rarity,
-      marketPrice: foundCard?.marketPrice ?? null,
-      lowPrice: foundCard?.lowPrice ?? null,
-      highPrice: foundCard?.highPrice ?? null,
-      tcgplayerUrl: foundCard?.tcgplayerUrl,
-      source: "vision_plus_ai_condition",
-    };
+  const persistentImageUrl = selectedFile
+    ? await fileToCompressedDataUrl(selectedFile)
+    : selectedPreview;
 
-    setSavedCards((current) => [entry, ...current].slice(0, 30));
+  const entry: SavedCard = {
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    uploadedImageUrl: persistentImageUrl,
+    grade: finalCondition.grade,
+    band: finalCondition.band,
+    metrics: {
+      centering: finalCondition.centering,
+      corners: finalCondition.corners,
+      edges: finalCondition.edges,
+      surface: finalCondition.surface,
+    },
+    cardName: foundCard?.name ?? (cardNameInput.trim() || "Unknown card"),
+    enteredName: cardNameInput.trim(),
+    enteredNumber: cardNumberInput.trim(),
+    matchedCardId: foundCard?.id,
+    setName: foundCard?.setName,
+    setSeries: foundCard?.setSeries,
+    setPrintedTotal: foundCard?.setPrintedTotal,
+    setSymbolUrl: foundCard?.setSymbolUrl,
+    rarity: foundCard?.rarity,
+    marketPrice: foundCard?.marketPrice ?? null,
+    lowPrice: foundCard?.lowPrice ?? null,
+    highPrice: foundCard?.highPrice ?? null,
+    tcgplayerUrl: foundCard?.tcgplayerUrl,
+    source: "vision_plus_ai_condition",
   };
+
+  const { error } = await supabase.from("saved_cards").insert({
+    id: entry.id,
+    user_id: user.id,
+    created_at: entry.createdAt,
+    uploaded_image_url: entry.uploadedImageUrl,
+    grade: entry.grade,
+    band: entry.band,
+    centering: entry.metrics.centering,
+    corners: entry.metrics.corners,
+    edges: entry.metrics.edges,
+    surface: entry.metrics.surface,
+    card_name: entry.cardName,
+    entered_name: entry.enteredName,
+    entered_number: entry.enteredNumber,
+    matched_card_id: entry.matchedCardId,
+    set_name: entry.setName,
+    set_series: entry.setSeries,
+    set_printed_total: entry.setPrintedTotal,
+    set_symbol_url: entry.setSymbolUrl,
+    rarity: entry.rarity,
+    market_price: entry.marketPrice,
+    low_price: entry.lowPrice,
+    high_price: entry.highPrice,
+    tcgplayer_url: entry.tcgplayerUrl,
+    source: entry.source,
+  });
+
+  if (error) {
+    console.error(error);
+    throw error;
+  }
+
+  setSavedCards((current) => [entry, ...current]);
+};
 
   const handleScanWithCamera = async () => {
     try {
@@ -512,13 +591,9 @@ if (!response.ok) {
 
       const imageDataUrl = await fileToDataUrl(selectedFile);
 
-      const response = await fetch("/api/identify-card", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ imageDataUrl }),
-      });
+const response = await fetch("https://late-melons-smile.loca.lt/scan", {
+  method: "POST",
+});
 
       const payload = await response.json();
 
@@ -586,13 +661,40 @@ if (!response.ok) {
     }
   };
 
-  const handleDeleteCard = (id: string) => {
-    setSavedCards((current) => current.filter((card) => card.id !== id));
-  };
+ const handleDeleteCard = async (id: string) => {
+  if (!user) return;
 
-  const handleClearCollection = () => {
-    setSavedCards([]);
-  };
+  const { error } = await supabase
+    .from("saved_cards")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error(error);
+    setError("Could not delete card.");
+    return;
+  }
+
+  setSavedCards((current) => current.filter((card) => card.id !== id));
+};
+
+  const handleClearCollection = async () => {
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("saved_cards")
+    .delete()
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error(error);
+    setError("Could not clear collection.");
+    return;
+  }
+
+  setSavedCards([]);
+};
 
   const gradeColor = getGradeColor(condition?.grade ?? 7);
 
