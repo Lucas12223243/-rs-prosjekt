@@ -606,7 +606,7 @@ export default function PokemonCardGraderSite() {
 
       const imageDataUrl = await fileToDataUrl(selectedFile);
 
-      const response = await fetch("https://late-melons-smile.loca.lt/scan", {
+      const response = await fetch("https://ensure-barn-molecule.ngrok-free.dev/scan", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
