@@ -270,9 +270,17 @@ export default function PokemonCardGraderSite() {
   const [matchedCard, setMatchedCard] = useState<CardMatch | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-const [previewTick, setPreviewTick] = useState(Date.now());
+  const [previewTick, setPreviewTick] = useState(Date.now());
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPreviewTick(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     try {
@@ -293,97 +301,89 @@ const [previewTick, setPreviewTick] = useState(Date.now());
     };
   }, [selectedPreview]);
 
- useEffect(() => {
-  let mounted = true;
+  useEffect(() => {
+    let mounted = true;
 
-  const loadSession = async () => {
-    const { data, error } = await supabase.auth.getSession();
+    const loadSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (error) {
-      console.error(error);
-    }
+      if (error) {
+        console.error(error);
+      }
 
-    setUser(data.session?.user ?? null);
-    setAuthLoading(false);
-  };
+      setUser(data.session?.user ?? null);
+      setAuthLoading(false);
+    };
+
+    loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
-  const interval = setInterval(() => {
-    setPreviewTick(Date.now());
-  }, 1000);
+    const loadSavedCards = async () => {
+      if (!user) {
+        setSavedCards([]);
+        return;
+      }
 
-  return () => clearInterval(interval);
-}, []);
+      const { data, error } = await supabase
+        .from("saved_cards")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
-  loadSession();
+      if (error) {
+        console.error(error);
+        setError("Could not load saved cards.");
+        return;
+      }
 
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event, session) => {
-    setUser(session?.user ?? null);
-    setAuthLoading(false);
-  });
+      const mappedCards: SavedCard[] = (data ?? []).map((row) => ({
+        id: row.id,
+        createdAt: row.created_at,
+        uploadedImageUrl: row.uploaded_image_url,
+        grade: Number(row.grade ?? 0),
+        band: row.band ?? "Unknown",
+        metrics: {
+          centering: row.centering,
+          corners: row.corners,
+          edges: row.edges,
+          surface: row.surface,
+        },
+        cardName: row.card_name ?? "Unknown card",
+        enteredName: row.entered_name ?? "",
+        enteredNumber: row.entered_number ?? "",
+        matchedCardId: row.matched_card_id ?? undefined,
+        setName: row.set_name ?? undefined,
+        setSeries: row.set_series ?? undefined,
+        setPrintedTotal: row.set_printed_total ?? undefined,
+        setSymbolUrl: row.set_symbol_url ?? undefined,
+        rarity: row.rarity ?? undefined,
+        marketPrice: row.market_price,
+        lowPrice: row.low_price,
+        highPrice: row.high_price,
+        tcgplayerUrl: row.tcgplayer_url ?? undefined,
+        source: "vision_plus_ai_condition",
+      }));
 
-  return () => {
-    mounted = false;
-    subscription.unsubscribe();
-  };
-}, []);
+      setSavedCards(mappedCards);
+    };
 
-useEffect(() => {
-  const loadSavedCards = async () => {
-    if (!user) {
-      setSavedCards([]);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("saved_cards")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error(error);
-      setError("Could not load saved cards.");
-      return;
-    }
-
-    const mappedCards: SavedCard[] = (data ?? []).map((row) => ({
-      id: row.id,
-      createdAt: row.created_at,
-      uploadedImageUrl: row.uploaded_image_url,
-      grade: Number(row.grade ?? 0),
-      band: row.band ?? "Unknown",
-      metrics: {
-        centering: row.centering,
-        corners: row.corners,
-        edges: row.edges,
-        surface: row.surface,
-      },
-      cardName: row.card_name ?? "Unknown card",
-      enteredName: row.entered_name ?? "",
-      enteredNumber: row.entered_number ?? "",
-      matchedCardId: row.matched_card_id ?? undefined,
-      setName: row.set_name ?? undefined,
-      setSeries: row.set_series ?? undefined,
-      setPrintedTotal: row.set_printed_total ?? undefined,
-      setSymbolUrl: row.set_symbol_url ?? undefined,
-      rarity: row.rarity ?? undefined,
-      marketPrice: row.market_price,
-      lowPrice: row.low_price,
-      highPrice: row.high_price,
-      tcgplayerUrl: row.tcgplayer_url ?? undefined,
-      source: "vision_plus_ai_condition",
-    }));
-
-    setSavedCards(mappedCards);
-  };
-
-  loadSavedCards();
-}, [user]);
+    loadSavedCards();
+  }, [user]);
 
   const handleGoogleSignIn = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -431,83 +431,83 @@ useEffect(() => {
     setSelectedPreview(URL.createObjectURL(file));
   };
 
-const saveCardToCollection = async (
-  finalCondition: ConditionAssessment,
-  foundCard: CardMatch | null
-) => {
-  if (!user) {
-    setError("Sign in with Google before saving.");
-    return;
-  }
+  const saveCardToCollection = async (
+    finalCondition: ConditionAssessment,
+    foundCard: CardMatch | null
+  ) => {
+    if (!user) {
+      setError("Sign in with Google before saving.");
+      return;
+    }
 
-  if (!selectedFile && !selectedPreview) return;
+    if (!selectedFile && !selectedPreview) return;
 
-  const persistentImageUrl = selectedFile
-    ? await fileToCompressedDataUrl(selectedFile)
-    : selectedPreview;
+    const persistentImageUrl = selectedFile
+      ? await fileToCompressedDataUrl(selectedFile)
+      : selectedPreview;
 
-  const entry: SavedCard = {
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
-    uploadedImageUrl: persistentImageUrl,
-    grade: finalCondition.grade,
-    band: finalCondition.band,
-    metrics: {
-      centering: finalCondition.centering,
-      corners: finalCondition.corners,
-      edges: finalCondition.edges,
-      surface: finalCondition.surface,
-    },
-    cardName: foundCard?.name ?? (cardNameInput.trim() || "Unknown card"),
-    enteredName: cardNameInput.trim(),
-    enteredNumber: cardNumberInput.trim(),
-    matchedCardId: foundCard?.id,
-    setName: foundCard?.setName,
-    setSeries: foundCard?.setSeries,
-    setPrintedTotal: foundCard?.setPrintedTotal,
-    setSymbolUrl: foundCard?.setSymbolUrl,
-    rarity: foundCard?.rarity,
-    marketPrice: foundCard?.marketPrice ?? null,
-    lowPrice: foundCard?.lowPrice ?? null,
-    highPrice: foundCard?.highPrice ?? null,
-    tcgplayerUrl: foundCard?.tcgplayerUrl,
-    source: "vision_plus_ai_condition",
+    const entry: SavedCard = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      uploadedImageUrl: persistentImageUrl,
+      grade: finalCondition.grade,
+      band: finalCondition.band,
+      metrics: {
+        centering: finalCondition.centering,
+        corners: finalCondition.corners,
+        edges: finalCondition.edges,
+        surface: finalCondition.surface,
+      },
+      cardName: foundCard?.name ?? (cardNameInput.trim() || "Unknown card"),
+      enteredName: cardNameInput.trim(),
+      enteredNumber: cardNumberInput.trim(),
+      matchedCardId: foundCard?.id,
+      setName: foundCard?.setName,
+      setSeries: foundCard?.setSeries,
+      setPrintedTotal: foundCard?.setPrintedTotal,
+      setSymbolUrl: foundCard?.setSymbolUrl,
+      rarity: foundCard?.rarity,
+      marketPrice: foundCard?.marketPrice ?? null,
+      lowPrice: foundCard?.lowPrice ?? null,
+      highPrice: foundCard?.highPrice ?? null,
+      tcgplayerUrl: foundCard?.tcgplayerUrl,
+      source: "vision_plus_ai_condition",
+    };
+
+    const { error } = await supabase.from("saved_cards").insert({
+      id: entry.id,
+      user_id: user.id,
+      created_at: entry.createdAt,
+      uploaded_image_url: entry.uploadedImageUrl,
+      grade: entry.grade,
+      band: entry.band,
+      centering: entry.metrics.centering,
+      corners: entry.metrics.corners,
+      edges: entry.metrics.edges,
+      surface: entry.metrics.surface,
+      card_name: entry.cardName,
+      entered_name: entry.enteredName,
+      entered_number: entry.enteredNumber,
+      matched_card_id: entry.matchedCardId,
+      set_name: entry.setName,
+      set_series: entry.setSeries,
+      set_printed_total: entry.setPrintedTotal,
+      set_symbol_url: entry.setSymbolUrl,
+      rarity: entry.rarity,
+      market_price: entry.marketPrice,
+      low_price: entry.lowPrice,
+      high_price: entry.highPrice,
+      tcgplayer_url: entry.tcgplayerUrl,
+      source: entry.source,
+    });
+
+    if (error) {
+      console.error(error);
+      throw error;
+    }
+
+    setSavedCards((current) => [entry, ...current]);
   };
-
-  const { error } = await supabase.from("saved_cards").insert({
-    id: entry.id,
-    user_id: user.id,
-    created_at: entry.createdAt,
-    uploaded_image_url: entry.uploadedImageUrl,
-    grade: entry.grade,
-    band: entry.band,
-    centering: entry.metrics.centering,
-    corners: entry.metrics.corners,
-    edges: entry.metrics.edges,
-    surface: entry.metrics.surface,
-    card_name: entry.cardName,
-    entered_name: entry.enteredName,
-    entered_number: entry.enteredNumber,
-    matched_card_id: entry.matchedCardId,
-    set_name: entry.setName,
-    set_series: entry.setSeries,
-    set_printed_total: entry.setPrintedTotal,
-    set_symbol_url: entry.setSymbolUrl,
-    rarity: entry.rarity,
-    market_price: entry.marketPrice,
-    low_price: entry.lowPrice,
-    high_price: entry.highPrice,
-    tcgplayer_url: entry.tcgplayerUrl,
-    source: entry.source,
-  });
-
-  if (error) {
-    console.error(error);
-    throw error;
-  }
-
-  setSavedCards((current) => [entry, ...current]);
-};
 
   const handleScanWithCamera = async () => {
     try {
@@ -523,22 +523,25 @@ const saveCardToCollection = async (
       setCardNameInput("");
       setCardNumberInput("");
 
-     fetch("http://10.13.37.204:5000/scan", {
+      fetch("http://10.13.37.204:5000/scan", {
         method: "POST",
-      });
+      }).catch(console.error);
 
-  const response = await fetch("https://ensure-barn-molecule.ngrok-free.dev/scan", {
-  method: "POST",
-  headers: {
-    "ngrok-skip-browser-warning": "true",
-  },
-});
+      const response = await fetch(
+        "https://ensure-barn-molecule.ngrok-free.dev/scan",
+        {
+          method: "POST",
+          headers: {
+            "ngrok-skip-browser-warning": "true",
+          },
+        }
+      );
 
-const payload = await response.json();
+      const payload = await response.json();
 
-if (!response.ok) {
-  throw new Error(payload?.error || "Camera scan failed.");
-}
+      if (!response.ok) {
+        throw new Error(payload?.error || "Camera scan failed.");
+      }
 
       const imageDataUrl = payload.imageDataUrl;
       const result = payload.result;
@@ -603,9 +606,13 @@ if (!response.ok) {
 
       const imageDataUrl = await fileToDataUrl(selectedFile);
 
-const response = await fetch("https://late-melons-smile.loca.lt/scan", {
-  method: "POST",
-});
+      const response = await fetch("https://late-melons-smile.loca.lt/scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ imageDataUrl }),
+      });
 
       const payload = await response.json();
 
@@ -631,9 +638,7 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
       }
 
       if (!guess?.card_name && candidates.length === 0) {
-        setLookupError(
-          "Could not identify the card confidently from the photo."
-        );
+        setLookupError("Could not identify the card confidently from the photo.");
       }
     } catch (err) {
       console.error(err);
@@ -673,40 +678,40 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
     }
   };
 
- const handleDeleteCard = async (id: string) => {
-  if (!user) return;
+  const handleDeleteCard = async (id: string) => {
+    if (!user) return;
 
-  const { error } = await supabase
-    .from("saved_cards")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id);
+    const { error } = await supabase
+      .from("saved_cards")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
 
-  if (error) {
-    console.error(error);
-    setError("Could not delete card.");
-    return;
-  }
+    if (error) {
+      console.error(error);
+      setError("Could not delete card.");
+      return;
+    }
 
-  setSavedCards((current) => current.filter((card) => card.id !== id));
-};
+    setSavedCards((current) => current.filter((card) => card.id !== id));
+  };
 
   const handleClearCollection = async () => {
-  if (!user) return;
+    if (!user) return;
 
-  const { error } = await supabase
-    .from("saved_cards")
-    .delete()
-    .eq("user_id", user.id);
+    const { error } = await supabase
+      .from("saved_cards")
+      .delete()
+      .eq("user_id", user.id);
 
-  if (error) {
-    console.error(error);
-    setError("Could not clear collection.");
-    return;
-  }
+    if (error) {
+      console.error(error);
+      setError("Could not clear collection.");
+      return;
+    }
 
-  setSavedCards([]);
-};
+    setSavedCards([]);
+  };
 
   const gradeColor = getGradeColor(condition?.grade ?? 7);
 
@@ -792,9 +797,9 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                       PokéGrade Lab
                     </h2>
                     <p className="max-w-xl text-base font-medium text-slate-900 sm:text-lg">
-                      Upload a card photo, scan from your Raspberry Pi camera, let AI
-                      identify the card, estimate the visible condition, then save it to
-                      your collection.
+                      Upload a card photo, scan from your Raspberry Pi camera,
+                      let AI identify the card, estimate the visible condition,
+                      then save it to your collection.
                     </p>
                   </div>
                 </div>
@@ -811,7 +816,8 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                             Upload, scan, and identify a card
                           </h2>
                           <p className="text-sm text-slate-300">
-                            Best results: one full card, straight angle, low glare.
+                            Best results: one full card, straight angle, low
+                            glare.
                           </p>
                         </div>
                       </div>
@@ -824,17 +830,15 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                         className="hidden"
                       />
 
-{/* LIVE PREVIEW */}
-<h2 className="text-sm text-slate-300 mb-2 mt-4">
-  Live Camera Preview
-</h2>
+                      <h2 className="mb-2 mt-4 text-sm text-slate-300">
+                        Live Camera Preview
+                      </h2>
 
-<img
-  src={`https://ensure-barn-molecule.ngrok-free.dev/preview.jpg?t=${previewTick}`}
-  alt="Live camera preview"
-  className="w-full rounded-xl mb-3"
-/>
-
+                      <img
+                        src={`https://ensure-barn-molecule.ngrok-free.dev/preview.jpg?t=${previewTick}`}
+                        alt="Live camera preview"
+                        className="mb-3 w-full rounded-xl"
+                      />
 
                       <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                         <div className="flex flex-wrap items-center gap-3">
@@ -922,9 +926,14 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                         </p>
                       ) : null}
 
-                      {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
+                      {error ? (
+                        <p className="mt-3 text-sm text-rose-300">{error}</p>
+                      ) : null}
+
                       {lookupError ? (
-                        <p className="mt-2 text-sm text-yellow-200">{lookupError}</p>
+                        <p className="mt-2 text-sm text-yellow-200">
+                          {lookupError}
+                        </p>
                       ) : null}
                     </div>
 
@@ -946,7 +955,9 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                             </div>
 
                             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                              <p className="text-slate-400">Collector number</p>
+                              <p className="text-slate-400">
+                                Collector number
+                              </p>
                               <p className="font-bold text-white">
                                 {visionGuess.card_number || "Unknown"}
                               </p>
@@ -965,7 +976,9 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                             <p className="font-bold text-yellow-300">
                               {Math.round((visionGuess.confidence || 0) * 100)}%
                             </p>
-                            <p className="mt-2 text-slate-300">{visionGuess.notes}</p>
+                            <p className="mt-2 text-slate-300">
+                              {visionGuess.notes}
+                            </p>
                           </div>
                         </CardContent>
                       </Card>
@@ -974,7 +987,9 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                     {candidateCards.length > 0 ? (
                       <Card className="border-white/10 bg-slate-950/60 text-white shadow-xl">
                         <CardHeader>
-                          <CardTitle className="text-xl text-white">Likely matches</CardTitle>
+                          <CardTitle className="text-xl text-white">
+                            Likely matches
+                          </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           {candidateCards.map((card, index) => {
@@ -1001,7 +1016,9 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
 
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2">
-                                    <p className="font-bold text-white">{card.name}</p>
+                                    <p className="font-bold text-white">
+                                      {card.name}
+                                    </p>
                                     {isSelected ? (
                                       <CheckCircle2 className="h-4 w-4 text-yellow-300" />
                                     ) : null}
@@ -1028,7 +1045,9 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                         <p className="text-sm uppercase tracking-[0.25em] text-slate-400">
                           Preview
                         </p>
-                        <h3 className="text-xl font-bold text-white">Card photo</h3>
+                        <h3 className="text-xl font-bold text-white">
+                          Card photo
+                        </h3>
                       </div>
                       <div className="rounded-full bg-white/5 px-3 py-1 text-xs text-slate-300">
                         Vision + AI condition estimate
@@ -1048,7 +1067,8 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                             <ImageIcon className="h-10 w-10" />
                           </div>
                           <p className="font-medium">
-                            Your uploaded or camera-scanned card preview will appear here.
+                            Your uploaded or camera-scanned card preview will
+                            appear here.
                           </p>
                         </div>
                       )}
@@ -1068,13 +1088,13 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm text-slate-200">
                   <p>
-                    This version identifies cards from an uploaded image or a Raspberry Pi
-                    camera scan, shows likely matches, uses AI to estimate visible
-                    condition, and saves the result locally.
+                    This version identifies cards from an uploaded image or a
+                    Raspberry Pi camera scan, shows likely matches, uses AI to
+                    estimate visible condition, and saves the result locally.
                   </p>
                   <div className="rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4 text-yellow-100">
-                    Best flow: upload card or scan with camera → Find Card + Grade if uploaded
-                    → review result → Save Result.
+                    Best flow: upload card or scan with camera → Find Card +
+                    Grade if uploaded → review result → Save Result.
                   </div>
                 </CardContent>
               </Card>
@@ -1082,7 +1102,9 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
               {matchedCard ? (
                 <Card className="border-white/10 bg-slate-950/60 text-white shadow-xl">
                   <CardHeader>
-                    <CardTitle className="text-xl text-white">Best match</CardTitle>
+                    <CardTitle className="text-xl text-white">
+                      Best match
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-start gap-4 rounded-3xl border border-white/10 bg-white/5 p-4">
@@ -1095,8 +1117,12 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                       ) : null}
 
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-xl font-bold text-white">{matchedCard.name}</h3>
-                        <p className="mt-1 text-sm text-slate-300">#{matchedCard.number}</p>
+                        <h3 className="text-xl font-bold text-white">
+                          {matchedCard.name}
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-300">
+                          #{matchedCard.number}
+                        </p>
 
                         <div className="mt-3 flex flex-wrap gap-2">
                           <Badge className="rounded-full border-0 bg-white/10 px-3 py-1 text-white">
@@ -1114,8 +1140,12 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                         <p className="text-sm text-slate-400">Set</p>
-                        <p className="mt-1 font-bold text-white">{matchedCard.setName}</p>
-                        <p className="mt-1 text-sm text-slate-400">{matchedCard.setSeries}</p>
+                        <p className="mt-1 font-bold text-white">
+                          {matchedCard.setName}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-400">
+                          {matchedCard.setSeries}
+                        </p>
                       </div>
 
                       <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -1134,10 +1164,13 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
               ) : (
                 <Card className="border-white/10 bg-slate-950/60 text-white shadow-xl">
                   <CardHeader>
-                    <CardTitle className="text-xl text-white">Best match</CardTitle>
+                    <CardTitle className="text-xl text-white">
+                      Best match
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-slate-300">
-                    Upload a card and click Find Card + Grade, or use Scan with Camera.
+                    Upload a card and click Find Card + Grade, or use Scan with
+                    Camera.
                   </CardContent>
                 </Card>
               )}
@@ -1154,7 +1187,9 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                 <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
                   Collection Portfolio
                 </p>
-                <h2 className="mt-2 text-3xl font-black text-white">Saved scans</h2>
+                <h2 className="mt-2 text-3xl font-black text-white">
+                  Saved scans
+                </h2>
               </div>
 
               <div className="flex items-center gap-3">
@@ -1173,9 +1208,12 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                 <CardContent className="flex min-h-[280px] flex-col items-center justify-center gap-4 text-center text-slate-300">
                   <FolderOpen className="h-12 w-12 text-yellow-300" />
                   <div>
-                    <h3 className="text-xl font-bold text-white">No saved scans yet</h3>
+                    <h3 className="text-xl font-bold text-white">
+                      No saved scans yet
+                    </h3>
                     <p className="mt-2 max-w-lg">
-                      Upload or scan a card, find the likely match, grade it, and save it.
+                      Upload or scan a card, find the likely match, grade it,
+                      and save it.
                     </p>
                   </div>
                 </CardContent>
@@ -1187,7 +1225,11 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                     key={card.id}
                     className="overflow-hidden border-white/10 bg-white/10 text-white shadow-xl backdrop-blur-xl"
                   >
-                    <div className={`h-1.5 bg-gradient-to-r ${getGradeColor(card.grade)}`} />
+                    <div
+                      className={`h-1.5 bg-gradient-to-r ${getGradeColor(
+                        card.grade
+                      )}`}
+                    />
 
                     <CardContent className="p-4">
                       <div className="mb-4 flex items-start justify-between gap-4">
@@ -1247,7 +1289,9 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                             {card.setName ?? "Not matched"}
                           </p>
                           {card.setSeries ? (
-                            <p className="mt-1 text-slate-400">{card.setSeries}</p>
+                            <p className="mt-1 text-slate-400">
+                              {card.setSeries}
+                            </p>
                           ) : null}
                         </div>
 
@@ -1349,7 +1393,9 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
               </button>
 
               <div className="rounded-[28px] border border-white/10 bg-black/30 p-4">
-                <div className={`mb-4 rounded-[24px] bg-gradient-to-br ${gradeColor} p-[2px]`}>
+                <div
+                  className={`mb-4 rounded-[24px] bg-gradient-to-br ${gradeColor} p-[2px]`}
+                >
                   <div className="rounded-[22px] bg-slate-950/95 p-4">
                     <img
                       src={selectedPreview}
@@ -1379,14 +1425,18 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                     <p className="mt-4 text-sm text-slate-300">
                       Card:{" "}
                       <span className="font-semibold text-yellow-300">
-                        {matchedCard?.name ?? visionGuess?.card_name ?? "Unknown"}
+                        {matchedCard?.name ??
+                          visionGuess?.card_name ??
+                          "Unknown"}
                       </span>
                     </p>
 
                     <p className="mt-2 text-sm text-slate-300">
                       Number:{" "}
                       <span className="font-semibold text-yellow-300">
-                        {matchedCard?.number ?? visionGuess?.card_number ?? "Unknown"}
+                        {matchedCard?.number ??
+                          visionGuess?.card_number ??
+                          "Unknown"}
                       </span>
                     </p>
 
@@ -1413,8 +1463,12 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                           />
                         ) : null}
                         <div>
-                          <p className="font-bold text-white">{matchedCard.setName}</p>
-                          <p className="text-sm text-slate-400">{matchedCard.setSeries}</p>
+                          <p className="font-bold text-white">
+                            {matchedCard.setName}
+                          </p>
+                          <p className="text-sm text-slate-400">
+                            {matchedCard.setSeries}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -1445,7 +1499,10 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                   </p>
                   <ul className="space-y-2 text-sm text-slate-300">
                     {condition.notes.map((item) => (
-                      <li key={item} className="rounded-2xl bg-white/5 px-3 py-2">
+                      <li
+                        key={item}
+                        className="rounded-2xl bg-white/5 px-3 py-2"
+                      >
                         {item}
                       </li>
                     ))}
