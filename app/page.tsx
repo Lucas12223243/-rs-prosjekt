@@ -518,12 +518,11 @@ const saveCardToCollection = async (
         method: "POST",
       });
 
-   const response = await fetch("https://ensure-barn-molecule.ngrok-free.dev/scan", {
+  const response = await fetch("https://ensure-barn-molecule.ngrok-free.dev/scan", {
   method: "POST",
   headers: {
-    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
   },
-  body: JSON.stringify({ imageDataUrl }),
 });
 
 const payload = await response.json();
