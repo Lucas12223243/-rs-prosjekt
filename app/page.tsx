@@ -271,6 +271,7 @@ export default function PokemonCardGraderSite() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+const [previewTick, setPreviewTick] = useState(Date.now());
 
 
   useEffect(() => {
@@ -307,6 +308,14 @@ export default function PokemonCardGraderSite() {
     setUser(data.session?.user ?? null);
     setAuthLoading(false);
   };
+
+  useEffect(() => {
+  const interval = setInterval(() => {
+    setPreviewTick(Date.now());
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, []);
 
   loadSession();
 
@@ -821,7 +830,7 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
 </h2>
 
 <img
-  src={`https://ensure-barn-molecule.ngrok-free.dev/preview.jpg?t=${Date.now()}`}
+src={`https://ensure-barn-molecule.ngrok-free.dev/preview.jpg?t=${previewTick}`}
   alt="Live camera preview"
   className="w-full rounded-xl mb-3"
 />
