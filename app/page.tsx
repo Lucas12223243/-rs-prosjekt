@@ -830,7 +830,7 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
 </h2>
 
 <img
-src="https://ensure-barn-molecule.ngrok-free.dev/stream.mjpg"
+  src={`https://ensure-barn-molecule.ngrok-free.dev/preview.jpg?t=${previewTick}`}
   alt="Live camera preview"
   className="w-full rounded-xl mb-3"
 />
