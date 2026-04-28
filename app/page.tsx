@@ -815,6 +815,18 @@ const response = await fetch("https://late-melons-smile.loca.lt/scan", {
                         className="hidden"
                       />
 
+{/* LIVE PREVIEW */}
+<h2 className="text-sm text-slate-300 mb-2 mt-4">
+  Live Camera Preview
+</h2>
+
+<img
+  src={`https://ensure-barn-molecule.ngrok-free.dev/preview.jpg?t=${Date.now()}`}
+  alt="Live camera preview"
+  className="w-full rounded-xl mb-3"
+/>
+
+
                       <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                         <div className="flex flex-wrap items-center gap-3">
                           <button
