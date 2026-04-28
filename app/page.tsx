@@ -518,9 +518,10 @@ const saveCardToCollection = async (
         method: "POST",
       });
 
-     const response = await fetch("https://silly-heads-attend.loca.lt/scan", {
+    const response = await fetch("https://silly-heads-attend.loca.lt/scan", {
   method: "POST",
   headers: {
+    "Content-Type": "application/json",
     "bypass-tunnel-reminder": "true",
   },
   body: JSON.stringify({ imageDataUrl }),
