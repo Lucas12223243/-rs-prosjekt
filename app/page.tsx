@@ -249,6 +249,19 @@ function ActionButton({
   );
 }
 
+function LoadingOverlay({ message }: { message: string }) {
+  if (!message) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
+      <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-900 px-6 py-4 text-white shadow-2xl">
+        <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-yellow-300" />
+        <span className="text-sm font-semibold">{message}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function PokemonCardGraderSite() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedPreview, setSelectedPreview] = useState("");
@@ -271,6 +284,7 @@ export default function PokemonCardGraderSite() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [previewTick, setPreviewTick] = useState(Date.now());
+  const [busyMessage, setBusyMessage] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -400,11 +414,21 @@ export default function PokemonCardGraderSite() {
   };
 
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
+    try {
+      setBusyMessage("Signing out...");
+      const { error } = await supabase.auth.signOut();
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      setUser(null);
+      setSavedCards([]);
+      window.location.reload();
+    } catch (error) {
       console.error(error);
-      setError(error.message);
+      setError(error instanceof Error ? error.message : "Could not sign out.");
+      setBusyMessage("");
     }
   };
 
@@ -511,6 +535,7 @@ export default function PokemonCardGraderSite() {
 
   const handleScanWithCamera = async () => {
     try {
+      setBusyMessage("Scanning with camera...");
       setIsPiScanning(true);
       setIsFindingLikelyCard(true);
       setError("");
@@ -522,7 +547,6 @@ export default function PokemonCardGraderSite() {
       setShowModal(false);
       setCardNameInput("");
       setCardNumberInput("");
-
 
       const response = await fetch(
         "https://ensure-barn-molecule.ngrok-free.dev/scan",
@@ -584,6 +608,7 @@ export default function PokemonCardGraderSite() {
     } finally {
       setIsPiScanning(false);
       setIsFindingLikelyCard(false);
+      setBusyMessage("");
     }
   };
 
@@ -594,6 +619,7 @@ export default function PokemonCardGraderSite() {
     }
 
     try {
+      setBusyMessage("Finding card and grading...");
       setIsFindingLikelyCard(true);
       setError("");
       setLookupError("");
@@ -648,6 +674,7 @@ export default function PokemonCardGraderSite() {
       );
     } finally {
       setIsFindingLikelyCard(false);
+      setBusyMessage("");
     }
   };
 
@@ -668,12 +695,15 @@ export default function PokemonCardGraderSite() {
     }
 
     try {
+      setBusyMessage("Saving to your collection...");
       setError("");
       await saveCardToCollection(condition, matchedCard);
       setShowModal(true);
+      setBusyMessage("");
     } catch (error) {
       console.error(error);
       setError("Could not save this scan locally. Try clearing older saved cards.");
+      setBusyMessage("");
     }
   };
 
@@ -1087,8 +1117,9 @@ export default function PokemonCardGraderSite() {
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm text-slate-200">
                   <p>
-                    Upload a card or scan with your Raspberry Pi camera.
-                    The system detects the card, estimates condition, and lets you review results before saving.
+                    Upload a card or scan with your Raspberry Pi camera. The
+                    system detects the card, estimates condition, and lets you
+                    review results before saving.
                   </p>
                   <div className="rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4 text-yellow-100">
                     Best flow: upload card or scan with camera → Find Card +
@@ -1366,6 +1397,8 @@ export default function PokemonCardGraderSite() {
           </motion.section>
         )}
       </main>
+
+      <LoadingOverlay message={busyMessage} />
 
       <AnimatePresence>
         {showModal && condition ? (
