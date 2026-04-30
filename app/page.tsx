@@ -844,7 +844,7 @@ useEffect(() => {
         is_public: true,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "user_id" }
+      { onConflict: "slug" }
     );
 
     if (error) throw error;
