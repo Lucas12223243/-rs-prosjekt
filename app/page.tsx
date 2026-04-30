@@ -280,6 +280,7 @@ export default function PokemonCardGraderSite() {
     "scanner"
   );
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [portfolioName, setPortfolioName] = useState("My Portfolio");
   const [cardNameInput, setCardNameInput] = useState("");
   const [cardNumberInput, setCardNumberInput] = useState("");
   const [matchedCard, setMatchedCard] = useState<CardMatch | null>(null);
@@ -300,6 +301,19 @@ export default function PokemonCardGraderSite() {
 
     return () => clearInterval(interval);
   }, []);
+
+ useEffect(() => {
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("portfolio_name");
+    if (saved) setPortfolioName(saved);
+  }
+}, []);
+
+useEffect(() => {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("portfolio_name", portfolioName);
+  }
+}, [portfolioName]);
 
   useEffect(() => {
     try {
@@ -760,8 +774,8 @@ export default function PokemonCardGraderSite() {
               PokéGrade Lab
             </p>
             <h1 className="mt-2 text-3xl font-black text-white sm:text-4xl">
-              Vision Scanner + Collection Portfolio
-            </h1>
+  {activeTab === "collection" ? portfolioName : "Vision Scanner + Collection Portfolio"}
+</h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -1221,18 +1235,25 @@ export default function PokemonCardGraderSite() {
                 <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
                   Collection Portfolio
                 </p>
-                <h2 className="mt-2 text-3xl font-black text-white">
-                  Saved scans
-                </h2>
+                <input
+  value={portfolioName}
+  onChange={(e) => setPortfolioName(e.target.value)}
+  className="mt-2 w-full bg-transparent text-4xl font-black text-white outline-none"
+/>
               </div>
 
               <div className="flex items-center gap-3">
                 <Badge className="rounded-full border-0 bg-white/10 px-4 py-2 text-slate-100">
                   {savedCards.length} saved
                 </Badge>
-                <Badge className="rounded-full border-0 bg-yellow-400 px-4 py-2 text-slate-950">
-  Total value: {formatPrice(totalPortfolioValue)}
-</Badge>
+              <div className="rounded-3xl border border-yellow-300/20 bg-yellow-400 px-6 py-4 text-slate-950 shadow-xl">
+  <p className="text-xs font-bold uppercase tracking-[0.2em]">
+    Total Portfolio Value
+  </p>
+  <p className="mt-1 text-3xl font-black">
+    {formatPrice(totalPortfolioValue)}
+  </p>
+</div>
                 <ActionButton variant="outline" onClick={handleClearCollection}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Clear all
