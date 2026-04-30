@@ -1345,6 +1345,10 @@ useEffect(() => {
 />
               </div>
 
+              <p className="mt-1 text-sm text-slate-400">
+  Public URL: /share/{shareSlug}
+</p>
+
               <div className="flex items-center gap-3">
                 <Badge className="rounded-full border-0 bg-white/10 px-4 py-2 text-slate-100">
                   {savedCards.length} saved
@@ -1410,12 +1414,20 @@ useEffect(() => {
                 </ActionButton>
               </div>
             </div>
-        {shareUrl ? (
+      {shareUrl ? (
   <div className="mt-3 rounded-2xl border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-sm text-yellow-100">
     Public link:{" "}
     <a href={shareUrl} target="_blank" rel="noreferrer" className="underline">
       {shareUrl}
     </a>
+
+    <button
+      type="button"
+      onClick={() => navigator.clipboard.writeText(shareUrl)}
+      className="ml-3 rounded-full bg-yellow-300 px-3 py-1 text-xs font-bold text-slate-950 hover:bg-yellow-200"
+    >
+      Copy
+    </button>
   </div>
 ) : null}
 
@@ -1478,14 +1490,18 @@ useEffect(() => {
                   </div>
                 </CardContent>
               </Card>
-            ) : (
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-               {filteredCards.map((card) => (
-                  <Card
-  key={card.id}
-  onClick={() => setSelectedCard(card)}
-  className="cursor-pointer overflow-hidden border-white/10 bg-white/5 text-white shadow-xl backdrop-blur-xl hover:scale-[1.02] transition"
->
+             ) : filteredCards.length === 0 ? (
+  <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-slate-300">
+    No cards match your search.
+  </div>
+) : (
+  <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    {filteredCards.map((card) => (
+      <Card
+        key={card.id}
+        onClick={() => setSelectedCard(card)}
+        className="cursor-pointer overflow-hidden border-white/10 bg-white/5 text-white shadow-xl backdrop-blur-xl"
+      >
                     <div
                       className={`h-1.5 bg-gradient-to-r ${getGradeColor(
                         card.grade
