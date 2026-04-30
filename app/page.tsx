@@ -765,9 +765,9 @@ useEffect(() => {
 
   return (
     <div className={`min-h-screen text-white ${
-  activeTab === "collection"
-    ? "bg-[radial-gradient(circle_at_top,_#312e81_0%,_#020617_60%)]"
-    : "bg-[radial-gradient(circle_at_top,_#1e3a8a_0%,_#0f172a_45%,_#020617_100%)]"
+ activeTab === "collection"
+  ? "bg-[radial-gradient(circle_at_top_left,_#7c2d12_0%,_#581c87_35%,_#020617_75%)]"
+  : "bg-[radial-gradient(circle_at_top,_#1e3a8a_0%,_#0f172a_45%,_#020617_100%)]"
 }`}>
       <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:32px_32px]" />
 
