@@ -280,6 +280,9 @@ export default function PokemonCardGraderSite() {
     "scanner"
   );
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [sortMode, setSortMode] = useState<
+  "newest" | "oldest" | "highestValue" | "lowestValue" | "bestGrade" | "worstGrade"
+>("newest");
   const [portfolioName, setPortfolioName] = useState("My Portfolio");
   const [cardNameInput, setCardNameInput] = useState("");
   const [cardNumberInput, setCardNumberInput] = useState("");
@@ -307,6 +310,34 @@ const mostValuableCard =
         (card.marketPrice ?? 0) > (best.marketPrice ?? 0) ? card : best
       )
     : null;
+
+    const sortedSavedCards = [...savedCards].sort((a, b) => {
+  if (sortMode === "newest") {
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  }
+
+  if (sortMode === "oldest") {
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  }
+
+  if (sortMode === "highestValue") {
+    return (b.marketPrice ?? 0) - (a.marketPrice ?? 0);
+  }
+
+  if (sortMode === "lowestValue") {
+    return (a.marketPrice ?? 0) - (b.marketPrice ?? 0);
+  }
+
+  if (sortMode === "bestGrade") {
+    return b.grade - a.grade;
+  }
+
+  if (sortMode === "worstGrade") {
+    return a.grade - b.grade;
+  }
+
+  return 0;
+});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1280,6 +1311,18 @@ useEffect(() => {
   {formatPrice(totalPortfolioValue)}
 </motion.p>
 </div>
+<select
+  value={sortMode}
+  onChange={(e) => setSortMode(e.target.value as typeof sortMode)}
+  className="h-12 rounded-2xl border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white outline-none backdrop-blur-xl"
+>
+  <option value="newest">Newest first</option>
+  <option value="oldest">Oldest first</option>
+  <option value="highestValue">Highest value</option>
+  <option value="lowestValue">Lowest value</option>
+  <option value="bestGrade">Best grade</option>
+  <option value="worstGrade">Worst grade</option>
+</select>
                 <ActionButton variant="outline" onClick={handleClearCollection}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Clear all
@@ -1348,7 +1391,7 @@ useEffect(() => {
               </Card>
             ) : (
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {savedCards.map((card) => (
+               {sortedSavedCards.map((card) => (
                   <Card
                     key={card.id}
                     className="overflow-hidden border-white/10 bg-white/5 text-white shadow-xl backdrop-blur-xl"
