@@ -273,6 +273,8 @@ export default function PokemonCardGraderSite() {
   const [visionGuess, setVisionGuess] = useState<VisionGuess | null>(null);
   const [condition, setCondition] = useState<ConditionAssessment | null>(null);
   const [candidateCards, setCandidateCards] = useState<CardMatch[]>([]);
+  const [shareSlug, setShareSlug] = useState("pokemon");
+const [shareUrl, setShareUrl] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
   const [selectedCard, setSelectedCard] = useState<SavedCard | null>(null);
@@ -814,6 +816,50 @@ useEffect(() => {
     setSavedCards([]);
   };
 
+  const handleCreateShareLink = async () => {
+  if (!user) {
+    setError("Sign in before creating a share link.");
+    return;
+  }
+
+  try {
+    setBusyMessage("Creating share link...");
+
+    const cleanSlug = shareSlug
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    if (!cleanSlug) {
+      throw new Error("Choose a valid share name.");
+    }
+
+    const { error } = await supabase.from("portfolios").upsert(
+      {
+        user_id: user.id,
+        name: portfolioName,
+        slug: cleanSlug,
+        is_public: true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
+
+    if (error) throw error;
+
+    const url = `${window.location.origin}/share/${cleanSlug}`;
+    setShareUrl(url);
+    setShareSlug(cleanSlug);
+  } catch (error) {
+    console.error(error);
+    setError(error instanceof Error ? error.message : "Could not create share link.");
+  } finally {
+    setBusyMessage("");
+  }
+};
+
   const gradeColor = getGradeColor(condition?.grade ?? 7);
 
   return (
@@ -1342,6 +1388,16 @@ useEffect(() => {
   </option>
 </select>
 <input
+  value={shareSlug}
+  onChange={(e) => setShareSlug(e.target.value)}
+  placeholder="share name"
+  className="h-12 rounded-2xl border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white outline-none placeholder:text-slate-400"
+/>
+
+<ActionButton variant="primary" onClick={handleCreateShareLink}>
+  Share
+</ActionButton>
+<input
   type="text"
   placeholder="Search cards..."
   value={searchQuery}
@@ -1354,6 +1410,14 @@ useEffect(() => {
                 </ActionButton>
               </div>
             </div>
+        {shareUrl ? (
+  <div className="mt-3 rounded-2xl border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-sm text-yellow-100">
+    Public link:{" "}
+    <a href={shareUrl} target="_blank" rel="noreferrer" className="underline">
+      {shareUrl}
+    </a>
+  </div>
+) : null}
 
 <div className="grid gap-4 md:grid-cols-3">
   <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-white shadow-xl backdrop-blur-xl">
