@@ -200,6 +200,8 @@ function persistSavedCards(cards: SavedCard[]) {
   }
 }
 
+
+
 function MetricBar({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="space-y-2">
@@ -285,6 +287,9 @@ export default function PokemonCardGraderSite() {
   const [authLoading, setAuthLoading] = useState(true);
   const [previewTick, setPreviewTick] = useState(Date.now());
   const [busyMessage, setBusyMessage] = useState("");
+  const totalPortfolioValue = savedCards.reduce((sum, card) => {
+  return sum + (card.marketPrice ?? 0);
+}, 0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1225,6 +1230,9 @@ export default function PokemonCardGraderSite() {
                 <Badge className="rounded-full border-0 bg-white/10 px-4 py-2 text-slate-100">
                   {savedCards.length} saved
                 </Badge>
+                <Badge className="rounded-full border-0 bg-yellow-400 px-4 py-2 text-slate-950">
+  Total value: {formatPrice(totalPortfolioValue)}
+</Badge>
                 <ActionButton variant="outline" onClick={handleClearCollection}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Clear all
