@@ -291,6 +291,22 @@ export default function PokemonCardGraderSite() {
   const totalPortfolioValue = savedCards.reduce((sum, card) => {
   return sum + (card.marketPrice ?? 0);
 }, 0);
+const averageGrade =
+  savedCards.length > 0
+    ? savedCards.reduce((sum, card) => sum + card.grade, 0) / savedCards.length
+    : 0;
+
+const bestGrade =
+  savedCards.length > 0
+    ? Math.max(...savedCards.map((card) => card.grade))
+    : 0;
+
+const mostValuableCard =
+  savedCards.length > 0
+    ? savedCards.reduce((best, card) =>
+        (card.marketPrice ?? 0) > (best.marketPrice ?? 0) ? card : best
+      )
+    : null;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1254,9 +1270,15 @@ useEffect(() => {
   <p className="text-xs font-bold uppercase tracking-[0.2em]">
     Total Portfolio Value
   </p>
-  <p className="mt-1 text-3xl font-black">
-    {formatPrice(totalPortfolioValue)}
-  </p>
+ <motion.p
+  key={totalPortfolioValue}
+  initial={{ opacity: 0, y: 6 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.35 }}
+  className="mt-1 text-3xl font-black"
+>
+  {formatPrice(totalPortfolioValue)}
+</motion.p>
 </div>
                 <ActionButton variant="outline" onClick={handleClearCollection}>
                   <Trash2 className="mr-2 h-4 w-4" />
@@ -1264,6 +1286,50 @@ useEffect(() => {
                 </ActionButton>
               </div>
             </div>
+
+<div className="grid gap-4 md:grid-cols-3">
+  <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-white shadow-xl backdrop-blur-xl">
+    <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+      Average Grade
+    </p>
+    <motion.p
+      key={averageGrade}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className="mt-2 text-3xl font-black text-yellow-300"
+    >
+      {averageGrade.toFixed(1)}
+    </motion.p>
+  </div>
+
+  <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-white shadow-xl backdrop-blur-xl">
+    <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+      Best Grade
+    </p>
+    <motion.p
+      key={bestGrade}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className="mt-2 text-3xl font-black text-emerald-300"
+    >
+      {bestGrade.toFixed(1)}
+    </motion.p>
+  </div>
+
+  <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-white shadow-xl backdrop-blur-xl">
+    <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+      Most Valuable
+    </p>
+    <p className="mt-2 truncate text-xl font-black text-white">
+      {mostValuableCard?.cardName ?? "N/A"}
+    </p>
+    <p className="mt-1 text-sm font-bold text-yellow-300">
+      {formatPrice(mostValuableCard?.marketPrice)}
+    </p>
+  </div>
+</div>
 
             {savedCards.length === 0 ? (
               <Card className="border-white/10 bg-white/10 text-white backdrop-blur-xl">
