@@ -523,9 +523,6 @@ export default function PokemonCardGraderSite() {
       setCardNameInput("");
       setCardNumberInput("");
 
-      fetch("http://10.13.37.204:5000/scan", {
-        method: "POST",
-      }).catch(console.error);
 
       const response = await fetch(
         "https://ensure-barn-molecule.ngrok-free.dev/scan",
@@ -1088,9 +1085,8 @@ export default function PokemonCardGraderSite() {
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm text-slate-200">
                   <p>
-                    This version identifies cards from an uploaded image or a
-                    Raspberry Pi camera scan, shows likely matches, uses AI to
-                    estimate visible condition, and saves the result locally.
+                    Upload a card or scan with your Raspberry Pi camera.
+                    The system detects the card, estimates condition, and lets you review results before saving.
                   </p>
                   <div className="rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4 text-yellow-100">
                     Best flow: upload card or scan with camera → Find Card +
