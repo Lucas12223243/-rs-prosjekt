@@ -275,6 +275,7 @@ export default function PokemonCardGraderSite() {
   const [candidateCards, setCandidateCards] = useState<CardMatch[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
+  const [selectedCard, setSelectedCard] = useState<SavedCard | null>(null);
   const [lookupError, setLookupError] = useState("");
   const [activeTab, setActiveTab] = useState<"scanner" | "collection">(
     "scanner"
@@ -1417,9 +1418,10 @@ useEffect(() => {
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                {filteredCards.map((card) => (
                   <Card
-                    key={card.id}
-                    className="overflow-hidden border-white/10 bg-white/5 text-white shadow-xl backdrop-blur-xl"
-                  >
+  key={card.id}
+  onClick={() => setSelectedCard(card)}
+  className="cursor-pointer overflow-hidden border-white/10 bg-white/5 text-white shadow-xl backdrop-blur-xl hover:scale-[1.02] transition"
+>
                     <div
                       className={`h-1.5 bg-gradient-to-r ${getGradeColor(
                         card.grade
@@ -1710,6 +1712,41 @@ useEffect(() => {
           </motion.div>
         ) : null}
       </AnimatePresence>
+      {selectedCard && (
+  <div
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+    onClick={() => setSelectedCard(null)}
+  >
+    <div
+      className="bg-slate-900 rounded-3xl p-6 max-w-xl w-full text-white"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <h2 className="text-2xl font-bold mb-2">
+        {selectedCard.cardName}
+      </h2>
+
+      <img
+        src={selectedCard.uploadedImageUrl}
+        className="rounded-xl mb-4"
+      />
+
+      <p className="text-yellow-300 text-xl font-bold">
+        Grade: {selectedCard.grade}
+      </p>
+
+      <p className="mt-2">
+        Value: {formatPrice(selectedCard.marketPrice)}
+      </p>
+
+      <button
+        onClick={() => setSelectedCard(null)}
+        className="mt-4 px-4 py-2 bg-yellow-400 text-black rounded-xl"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
 }
