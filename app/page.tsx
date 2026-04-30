@@ -535,6 +535,7 @@ export default function PokemonCardGraderSite() {
       );
 
       const payload = await response.json();
+      console.log("identify-card payload:", payload);
 
       if (!response.ok) {
         throw new Error(payload?.error || "Camera scan failed.");
