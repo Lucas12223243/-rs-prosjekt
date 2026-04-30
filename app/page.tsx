@@ -604,7 +604,7 @@ export default function PokemonCardGraderSite() {
 
       const imageDataUrl = await fileToDataUrl(selectedFile);
 
-      const response = await fetch("https://ensure-barn-molecule.ngrok-free.dev/scan", {
+      const response = await fetch("/api/identify-card", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -617,6 +617,7 @@ export default function PokemonCardGraderSite() {
       if (!response.ok) {
         throw new Error(payload?.error || "Card identification failed.");
       }
+      console.log("identify-card payload:", payload);
 
       const guess = payload?.guess as VisionGuess | null;
       const candidates = Array.isArray(payload?.candidates)
