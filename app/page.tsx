@@ -280,6 +280,7 @@ export default function PokemonCardGraderSite() {
     "scanner"
   );
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<
   "newest" | "oldest" | "highestValue" | "lowestValue" | "bestGrade" | "worstGrade"
 >("newest");
@@ -311,7 +312,7 @@ const mostValuableCard =
       )
     : null;
 
-    const sortedSavedCards = [...savedCards].sort((a, b) => {
+  const sortedSavedCards = [...savedCards].sort((a, b) => {
   if (sortMode === "newest") {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   }
@@ -338,6 +339,10 @@ const mostValuableCard =
 
   return 0;
 });
+
+const filteredCards = sortedSavedCards.filter((card) =>
+  card.cardName.toLowerCase().includes(searchQuery.toLowerCase())
+);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1335,6 +1340,13 @@ useEffect(() => {
     Worst grade
   </option>
 </select>
+<input
+  type="text"
+  placeholder="Search cards..."
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+  className="h-12 rounded-2xl border border-white/10 bg-white/10 px-4 text-sm text-white outline-none backdrop-blur-xl"
+/>
                 <ActionButton variant="outline" onClick={handleClearCollection}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Clear all
@@ -1403,7 +1415,7 @@ useEffect(() => {
               </Card>
             ) : (
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-               {sortedSavedCards.map((card) => (
+               {filteredCards.map((card) => (
                   <Card
                     key={card.id}
                     className="overflow-hidden border-white/10 bg-white/5 text-white shadow-xl backdrop-blur-xl"
