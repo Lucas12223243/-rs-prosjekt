@@ -1314,14 +1314,26 @@ useEffect(() => {
 <select
   value={sortMode}
   onChange={(e) => setSortMode(e.target.value as typeof sortMode)}
-  className="h-12 rounded-2xl border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white outline-none backdrop-blur-xl"
+  className="h-12 rounded-2xl border border-white/10 bg-slate-900 px-4 text-sm font-semibold text-white outline-none backdrop-blur-xl"
 >
-  <option value="newest">Newest first</option>
-  <option value="oldest">Oldest first</option>
-  <option value="highestValue">Highest value</option>
-  <option value="lowestValue">Lowest value</option>
-  <option value="bestGrade">Best grade</option>
-  <option value="worstGrade">Worst grade</option>
+  <option className="bg-slate-900 text-white" value="newest">
+    Newest first
+  </option>
+  <option className="bg-slate-900 text-white" value="oldest">
+    Oldest first
+  </option>
+  <option className="bg-slate-900 text-white" value="highestValue">
+    Highest value
+  </option>
+  <option className="bg-slate-900 text-white" value="lowestValue">
+    Lowest value
+  </option>
+  <option className="bg-slate-900 text-white" value="bestGrade">
+    Best grade
+  </option>
+  <option className="bg-slate-900 text-white" value="worstGrade">
+    Worst grade
+  </option>
 </select>
                 <ActionButton variant="outline" onClick={handleClearCollection}>
                   <Trash2 className="mr-2 h-4 w-4" />
