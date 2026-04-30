@@ -764,7 +764,11 @@ useEffect(() => {
   const gradeColor = getGradeColor(condition?.grade ?? 7);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#1e3a8a_0%,_#0f172a_45%,_#020617_100%)] text-white">
+    <div className={`min-h-screen text-white ${
+  activeTab === "collection"
+    ? "bg-[radial-gradient(circle_at_top,_#312e81_0%,_#020617_60%)]"
+    : "bg-[radial-gradient(circle_at_top,_#1e3a8a_0%,_#0f172a_45%,_#020617_100%)]"
+}`}>
       <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:32px_32px]" />
 
       <main className="relative mx-auto max-w-6xl px-6 py-10">
@@ -773,8 +777,8 @@ useEffect(() => {
             <p className="text-sm uppercase tracking-[0.3em] text-slate-300">
               PokéGrade Lab
             </p>
-            <h1 className="mt-2 text-3xl font-black text-white sm:text-4xl">
-  {activeTab === "collection" ? portfolioName : "Vision Scanner + Collection Portfolio"}
+          <h1 className="mt-2 text-3xl font-black text-white sm:text-4xl">
+  {activeTab === "collection" ? "My Collection" : "Vision Scanner + Collection Portfolio"}
 </h1>
           </div>
 
@@ -1246,7 +1250,7 @@ useEffect(() => {
                 <Badge className="rounded-full border-0 bg-white/10 px-4 py-2 text-slate-100">
                   {savedCards.length} saved
                 </Badge>
-              <div className="rounded-3xl border border-yellow-300/20 bg-yellow-400 px-6 py-4 text-slate-950 shadow-xl">
+              <div className="rounded-3xl border border-yellow-300/20 bg-gradient-to-r from-yellow-300 to-yellow-500 px-6 py-4 text-slate-950 shadow-[0_0_30px_rgba(255,215,0,0.4)]">
   <p className="text-xs font-bold uppercase tracking-[0.2em]">
     Total Portfolio Value
   </p>
@@ -1281,7 +1285,7 @@ useEffect(() => {
                 {savedCards.map((card) => (
                   <Card
                     key={card.id}
-                    className="overflow-hidden border-white/10 bg-white/10 text-white shadow-xl backdrop-blur-xl"
+                    className="overflow-hidden border-white/10 bg-white/5 text-white shadow-xl backdrop-blur-xl"
                   >
                     <div
                       className={`h-1.5 bg-gradient-to-r ${getGradeColor(
